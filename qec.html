@@ -91,24 +91,203 @@ function closeNav() {
 <div id="surface-code-container" style="background:#000; padding:20px; border-radius:12px; max-width:600px; margin:auto;">
   <canvas id="surface-code-canvas" width="500" height="500" style="background:#000; display:block; margin:auto; border-radius:8px;"></canvas>
   <div style="text-align:center; margin-top:16px;">
-    <span style="color:#38bdf8; font-size:16px;">Click a data qubit to toggle X (blue) or Z (purple) error:</span>
+    <span style="color:#38bdf8; font-size:16px;">Click a qubit to toggle X (blue) or Z (purple) error:</span>
     <br>
     <button onclick="setErrorType('X')" style="background:#1e1b4b; color:#60a5fa; border:none; padding:8px 16px; margin:8px; border-radius:6px; font-family:'Inconsolata',monospace;">X Error</button>
     <button onclick="setErrorType('Z')" style="background:#134e4a; color:#38bdf8; border:none; padding:8px 16px; margin:8px; border-radius:6px; font-family:'Inconsolata',monospace;">Z Error</button>
     <button onclick="resetSurfaceCode()" style="background:#0f172a; color:#f59e42; border:none; padding:8px 16px; margin:8px; border-radius:6px; font-family:'Inconsolata',monospace;">Reset</button>
   </div>
 </div>
+<script>
+// Place data qubits at corners of plaquettes
+qubits = [];
+for (let i = 0; i <= d; i++) {
+    for (let j = 0; j <= d; j++) {
+        qubits.push({
+            x: offset + j * spacing - spacing / 2,
+            y: offset + i * spacing - spacing / 2,
+            error: null
+        });
+    }
+}
 
+// Add semicircle stabilizers at boundaries for rotated code
+function drawSemicircle(x, y, radius, direction, color, triggered) {
+    ctx.beginPath();
+    if (direction === 'up') {
+        ctx.arc(x, y, radius, Math.PI, 0, false);
+    } else if (direction === 'down') {
+        ctx.arc(x, y, radius, 0, Math.PI, false);
+    } else if (direction === 'left') {
+        ctx.arc(x, y, radius, 0.5 * Math.PI, 1.5 * Math.PI, false);
+    } else if (direction === 'right') {
+        ctx.arc(x, y, radius, 1.5 * Math.PI, 0.5 * Math.PI, false);
+    }
+    ctx.fillStyle = triggered ? color : color.replace('1)', '0.3)');
+    ctx.fill();
+}
+
+// Redefine stabilizers for rotated code
+stabilizers = [];
+for (let i = 0; i < d; i++) {
+    for (let j = 0; j < d; j++) {
+        const type = (i + j) % 2 === 0 ? 'X' : 'Z';
+        stabilizers.push({
+            i, j,
+            x: offset + j * spacing,
+            y: offset + i * spacing,
+            type,
+            triggered: false,
+            shape: 'square'
+        });
+    }
+}
+// Add boundary semicircle stabilizers
+for (let k = 0; k < d; k++) {
+    // Top
+    stabilizers.push({
+        i: 0, j: k,
+        x: offset + k * spacing,
+        y: offset - spacing / 2,
+        type: (k % 2 === 0 ? 'X' : 'Z'),
+        triggered: false,
+        shape: 'semicircle',
+        direction: 'up'
+    });
+    // Bottom
+    stabilizers.push({
+        i: d, j: k,
+        x: offset + k * spacing,
+        y: offset + d * spacing - spacing / 2,
+        type: ((d + k) % 2 === 0 ? 'X' : 'Z'),
+        triggered: false,
+        shape: 'semicircle',
+        direction: 'down'
+    });
+    // Left
+    stabilizers.push({
+        i: k, j: 0,
+        x: offset - spacing / 2,
+        y: offset + k * spacing,
+        type: (k % 2 === 0 ? 'X' : 'Z'),
+        triggered: false,
+        shape: 'semicircle',
+        direction: 'left'
+    });
+    // Right
+    stabilizers.push({
+        i: k, j: d,
+        x: offset + d * spacing - spacing / 2,
+        y: offset + k * spacing,
+        type: ((d + k) % 2 === 0 ? 'X' : 'Z'),
+        triggered: false,
+        shape: 'semicircle',
+        direction: 'right'
+    });
+}
+
+// Update detection events for corners
+function updateDetectionEvents() {
+    for (let s of stabilizers) {
+        let count = 0;
+        if (s.shape === 'square') {
+            for (let q of qubits) {
+                // corners of square
+                if (
+                    (Math.abs(q.x - (s.x - spacing / 2)) < 1e-2 && Math.abs(q.y - (s.y - spacing / 2)) < 1e-2) ||
+                    (Math.abs(q.x - (s.x + spacing / 2)) < 1e-2 && Math.abs(q.y - (s.y - spacing / 2)) < 1e-2) ||
+                    (Math.abs(q.x - (s.x - spacing / 2)) < 1e-2 && Math.abs(q.y - (s.y + spacing / 2)) < 1e-2) ||
+                    (Math.abs(q.x - (s.x + spacing / 2)) < 1e-2 && Math.abs(q.y - (s.y + spacing / 2)) < 1e-2)
+                ) {
+                    if (q.error === 'X' && s.type === 'Z') count++;
+                    if (q.error === 'Z' && s.type === 'X') count++;
+                }
+            }
+        } else {
+            // semicircle stabilizers touch one corner
+            for (let q of qubits) {
+                let match = false;
+                if (s.direction === 'up' && Math.abs(q.x - s.x) < 1e-2 && Math.abs(q.y - (s.y - spacing / 2)) < 1e-2) match = true;
+                if (s.direction === 'down' && Math.abs(q.x - s.x) < 1e-2 && Math.abs(q.y - (s.y + spacing / 2)) < 1e-2) match = true;
+                if (s.direction === 'left' && Math.abs(q.x - (s.x - spacing / 2)) < 1e-2 && Math.abs(q.y - s.y) < 1e-2) match = true;
+                if (s.direction === 'right' && Math.abs(q.x - (s.x + spacing / 2)) < 1e-2 && Math.abs(q.y - s.y) < 1e-2) match = true;
+                if (match) {
+                    if (q.error === 'X' && s.type === 'Z') count++;
+                    if (q.error === 'Z' && s.type === 'X') count++;
+                }
+            }
+        }
+        s.triggered = count % 2 === 1;
+    }
+}
+
+// Draw rotated surface code
+function drawSurfaceCode() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    updateDetectionEvents();
+
+    // draw stabilizers
+    for (let s of stabilizers) {
+        if (s.shape === 'square') {
+            ctx.beginPath();
+            ctx.rect(s.x - spacing / 2, s.y - spacing / 2, spacing, spacing);
+            ctx.fillStyle = s.type === 'X'
+                ? (s.triggered ? "rgba(239,68,68,1)" : "rgba(239,68,68,0.3)")
+                : (s.triggered ? "rgba(34,211,238,1)" : "rgba(34,211,238,0.3)");
+            ctx.fill();
+        } else {
+            drawSemicircle(
+                s.x, s.y, spacing / 2,
+                s.direction,
+                s.type === 'X'
+                    ? (s.triggered ? "rgba(239,68,68,1)" : "rgba(239,68,68,0.3)")
+                    : (s.triggered ? "rgba(34,211,238,1)" : "rgba(34,211,238,0.3)"),
+                s.triggered
+            );
+        }
+    }
+
+    // draw qubits as circles
+    for (let q of qubits) {
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = getQubitColor(q);
+        ctx.shadowColor = q.error ? ctx.fillStyle : '#000';
+        ctx.shadowBlur = q.error ? 8 : 0;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#444';
+        ctx.stroke();
+    }
+}
+
+canvas.addEventListener('click', function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    for (let q of qubits) {
+        const dx = mx - q.x;
+        const dy = my - q.y;
+        if (dx * dx + dy * dy < 12 * 12) {
+            q.error = (q.error === errorType) ? null : errorType;
+            drawSurfaceCode();
+            break;
+        }
+    }
+});
+
+drawSurfaceCode();
+</script>
 <script>
 const canvas = document.getElementById('surface-code-canvas');
 const ctx = canvas.getContext('2d');
-const d = 5; // distance of code (odd number)
-const spacing = 70;
+const d = 4; // distance-3 code has 4x4 stabilizers
+const spacing = 80;
 const offset = 60;
 let errorType = 'X';
 
 function setErrorType(type) { errorType = type; }
-function resetSurfaceCode() { for (let q of dataQubits) q.error = null; drawSurfaceCode(); }
+function resetSurfaceCode() { for (let q of qubits) q.error = null; drawSurfaceCode(); }
 
 function getQubitColor(q) {
   if (q.error === 'X') return '#60a5fa';
@@ -116,49 +295,40 @@ function getQubitColor(q) {
   return '#222';
 }
 
-// ----------------------------
-// Build rotated surface code
-// ----------------------------
-
-// Data qubits at vertices (all integer coordinates)
-let dataQubits = [];
-for (let i = 0; i <= d; i++) {
-  for (let j = 0; j <= d; j++) {
-    dataQubits.push({
+// Stabilizers are plaquettes
+let stabilizers = [];
+for (let i = 0; i < d; i++) {
+  for (let j = 0; j < d; j++) {
+    const type = (i + j) % 2 === 0 ? 'X' : 'Z';
+    stabilizers.push({
       i, j,
       x: offset + j * spacing,
       y: offset + i * spacing,
-      error: null
+      type,
+      triggered: false
     });
   }
 }
 
-// Stabilizers at odd parity centers (including boundaries)
-let stabilizers = [];
-for (let i = 0; i <= d; i++) {
-  for (let j = 0; j <= d; j++) {
-    if ((i + j) % 2 === 1) {
-      const type = (i % 2 === 1) ? 'X' : 'Z'; // alternating rows
-      stabilizers.push({
-        i, j,
-        x: offset + j * spacing,
-        y: offset + i * spacing,
-        type,
-        triggered: false
-      });
-    }
-  }
+// Qubits live on edges of plaquettes
+let qubits = [];
+for (let s of stabilizers) {
+  const x = s.x, y = s.y;
+  qubits.push({x: x - spacing/2, y, error: null}); // left
+  qubits.push({x: x + spacing/2, y, error: null}); // right
+  qubits.push({x, y: y - spacing/2, error: null}); // top
+  qubits.push({x, y: y + spacing/2, error: null}); // bottom
 }
+// remove duplicates by position
+qubits = qubits.filter((q,i,self) =>
+  i === self.findIndex(p => p.x === q.x && p.y === q.y)
+);
 
-// ----------------------------
-// Syndrome calculation
-// ----------------------------
 function updateDetectionEvents() {
   for (let s of stabilizers) {
     let count = 0;
-    for (let q of dataQubits) {
-      // corners of plaquette are at Chebyshev distance 1
-      if (Math.abs(q.i - s.i) === 1 && Math.abs(q.j - s.j) === 1) {
+    for (let q of qubits) {
+      if (Math.abs(q.x - s.x) + Math.abs(q.y - s.y) === spacing/2) {
         if (q.error === 'X' && s.type === 'Z') count++;
         if (q.error === 'Z' && s.type === 'X') count++;
       }
@@ -167,14 +337,11 @@ function updateDetectionEvents() {
   }
 }
 
-// ----------------------------
-// Drawing
-// ----------------------------
 function drawSurfaceCode() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   updateDetectionEvents();
 
-  // draw stabilizer plaquettes as squares
+  // draw stabilizer squares
   for (let s of stabilizers) {
     ctx.beginPath();
     ctx.rect(s.x - spacing/2, s.y - spacing/2, spacing, spacing);
@@ -186,8 +353,8 @@ function drawSurfaceCode() {
     ctx.fill();
   }
 
-  // draw data qubits at vertices
-  for (let q of dataQubits) {
+  // draw qubits as circles
+  for (let q of qubits) {
     ctx.beginPath();
     ctx.arc(q.x, q.y, 10, 0, 2*Math.PI);
     ctx.fillStyle = getQubitColor(q);
@@ -200,14 +367,11 @@ function drawSurfaceCode() {
   }
 }
 
-// ----------------------------
-// Interaction
-// ----------------------------
 canvas.addEventListener('click', function(e) {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
-  for (let q of dataQubits) {
+  for (let q of qubits) {
     const dx = mx - q.x;
     const dy = my - q.y;
     if (dx*dx + dy*dy < 12*12) {
@@ -220,7 +384,6 @@ canvas.addEventListener('click', function(e) {
 
 drawSurfaceCode();
 </script>
-
 
 
 </p>
