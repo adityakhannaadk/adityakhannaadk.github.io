@@ -87,10 +87,34 @@ function closeNav() {
 
   
 <div class="content">
-<p class="has-line-data" data-line-start="0" data-line-end="1">Hey, I'm Aditya (aka whadk on most social media). I'm currently a Physics student at Oxford. I'm primarily interested in researching quantum computing, particularly areas related to quantum error correction (QEC) and quantum compilation, as well as open source quantum software more generally. I have previously interned at Riverlane as a quantum engineer working with and on fault-tolerant quantum compilers, as well as at GlobalData as a data science intern. I've also been an active part of the NeuroTechnology society at Oxford, leading two different projects and helping to organise events. This year I will be the welfare and neuroethics representative. As a result of all this, I have a fairly good foundation across programming, quantum computing, neuroscience and machine learning. On this website I plan to write blogs about things I'm interested in, document particular projects and open source contributions, and whatever else I want realy. Thanks for stopping by, if you'd like to work with me, my email is below.</p>
-<p class="has-line-data" data-line-start="2" data-line-end="3"><a href="mailto:adityakhannaadk@gmail.com">adityakhannaadk@gmail.com</a></p>
-<p class="has-line-data" data-line-start="6" data-line-end="7">Thanks, whadk.</p>
+<p class="has-line-data" data-line-start="0" data-line-end="1">I really like music, like a LOT. I like breakcore, hyperpop and digital hardcore in particular, but I listen to a whole lot. I also play the drums, and aspire to play electronic music (particularly breakcore and digital hardcore) on a physical drumkit. If you'd like to see how that works, check out my YouTube channel!</p>
+<p class="has-line-data" data-line-start="2" data-line-end="3"><a href="https://www.youtube.com/@whadk3">YouTube</a></p>
+<p class="has-line-data" data-line-start="6" data-line-end="7">What I'm currently listening to, live from last.fm: </p>
+<!-- filepath: [music.html](http://_vscodecontentref_/0) -->
+<!-- ...existing code... -->
+<div id="now-playing"></div>
 
+<script>
+const username = "whadk"; // your Last.fm username
+const apiKey = "891e8ca44a0fa07cffab9cf2521120d3";    // your Last.fm API key
+
+async function fetchNowPlaying() {
+  const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${apiKey}&format=json&limit=1`;
+  const response = await fetch(url);
+  const data = await response.json();
+  const track = data.recenttracks.track[0];
+  if (track['@attr'] && track['@attr'].nowplaying) {
+    document.getElementById('now-playing').innerHTML =
+      `Now playing: <strong>${track.artist['#text']} - ${track.name}</strong>`;
+  } else {
+    document.getElementById('now-playing').innerHTML =
+      "Not currently scrobbling.";
+  }
+}
+
+fetchNowPlaying();
+</script>
+<!-- ...existing code... -->
 
 </p>
 </div>
