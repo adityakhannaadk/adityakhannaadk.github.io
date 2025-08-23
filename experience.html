@@ -1,0 +1,194 @@
+<!--todo: sort out sidenav text size thing-->
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Inconsolata:400" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/x-icon" href="favicon.png">
+</head>
+<body>
+
+  <html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {
+  font-family: 'Inconsolata', monospace;
+}
+
+.sidenav {
+  height: 100%;
+  width: 0;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  background-color: black;
+  overflow-x: hidden;
+  transition: 0.5s;
+  padding-top: 60px;
+}
+
+.sidenav a {
+  padding: 8px 8px 8px 32px;
+  text-decoration: none;
+  font-size: 15px;
+  color: white;
+  display: block;
+  transition: 0.3s;
+}
+
+.sidenav a:hover {
+  color: whitesmoke;
+}
+
+.sidenav .closebtn {
+  position: absolute;
+  top: 0;
+  right: 25px;
+  font-size: 36px;
+  margin-left: 50px;
+}
+
+@media screen and (max-height: 450px) {
+  .sidenav {padding-top: 15px;}
+  .sidenav a {font-size: 18px;}
+}
+
+@media screen and (max-width: 750px) {
+  .sidenav {padding-top: 15px;}
+  .sidenav a {font-size: 18px;}
+}
+
+
+
+</style>
+</head>
+<body>
+
+
+<div w3-include-html="sidenav.html"></div>
+
+
+<span style="font-size:30px;font-family:'Inconsolata',monospace;cursor:pointer" onclick="openNav()">&#9776; aditya k. - experience</span>
+
+<script>
+function openNav() {
+  document.getElementById("mySidenav").style.width = "250px";
+}
+
+function closeNav() {
+  document.getElementById("mySidenav").style.width = "0";
+}
+</script>
+   
+</body>
+</html> 
+
+  
+<div class="content">
+<p class="has-line-data" data-line-start="0" data-line-end="1">I'm a Physics student with a strong interest in everything related to quantum software. I aim to build a strong background, both in the theoretical aspects of quantum computing (something that I explore a lot in my degree and through research) as well as engineering - both software and hardware.</p>
+<div class="experience-cards">
+    <div class="card">
+        <a href="https://riverlane.com" target="_blank">
+            <div class="card-header riverlane-bg">Riverlane</div>
+        </a>
+        <div class="card-body">
+            <p>Worked on a fault-tolerant quantum compiler for surface code quantum computation. Explored a large amount of QEC theory, particularly related to surface codes and lattice surgery.</p>
+        </div>
+    </div>
+    <div class="card">
+        <a href="https://www.globaldata.com/" target="_blank">
+            <div class="card-header globaldata-bg">GlobalData</div>
+        </a>
+        <div class="card-body">
+            <p>Worked on time-series forecasting models, built internal tools for analysts.</p>
+        </div>
+    </div>
+    <div class="card">
+        <a href="https://www.ukri.org/who-we-are/stfc/facilities/rutherford-appleton-laboratory//" target="_blank">
+            <div class="card-header rutherford-bg">Rutherford Appleton Laboratory</div>
+        </a>
+        <div class="card-body">
+            <p>Worked in the ISIS Synchrotron simulations group.</p>
+        </div>
+    </div>
+    <div class="card">
+        <a href="https://oxfordneurotech.com/" target="_blank">
+            <div class="card-header oxford-bg">Oxford NeuroTech Society</div>
+        </a>
+        <div class="card-body">
+            <p>Lead a project to recommend music based upon brain signals. Lead a separate project to classify seizures using a CRNN with low hardware requirements (i.e. using an EEG headset with fewer electrodes than the data) via spherical spline interpolation.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.experience-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-top: 32px;
+    justify-content: center;
+}
+.card {
+    background: #181818;
+    border-radius: 18px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    width: 320px;
+    min-height: 160px;
+    color: #fff;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s;
+}
+.card:hover {
+    transform: translateY(-6px) scale(1.03);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+.card-header {
+    font-size: 1.3em;
+    font-weight: bold;
+    padding: 18px 24px;
+    border-bottom: 1px solid #222;
+    letter-spacing: 1px;
+}
+.riverlane-bg { background: linear-gradient(90deg, #1a3a4a 60%, #2e8b57 100%); }
+.globaldata-bg { background: linear-gradient(90deg, #232323 60%, #3a7bd5 100%); }
+.rutherford-bg { background: linear-gradient(90deg, #2c2c2c 60%, #e6b800 100%); }
+.oxford-bg { background: linear-gradient(90deg, #1a1a1a 60%, #6a5acd 100%); }
+.card-body {
+    padding: 18px 24px;
+    font-size: 1em;
+    flex: 1;
+}
+.card a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+@media (max-width: 750px) {
+    .experience-cards {
+        flex-direction: column;
+        gap: 18px;
+        align-items: center;
+    }
+    .card {
+        width: 90vw;
+        min-width: 0;
+    }
+}
+</style>
+
+
+</p>
+</div>
+
+<script src="https://www.w3schools.com/lib/w3.js"></script>
+<script>
+w3.includeHTML();
+</script>
+
+
+
