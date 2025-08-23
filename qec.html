@@ -86,8 +86,6 @@ function closeNav() {
 </html> 
 
   
-<div class="content">
-<p class="has-line-data" data-line-start="0" data-line-end="1">I'm planning to add a lot more here, but for now here's a nice visualisation of a rotated surface code where you can add X and Z errors.</p>
 <div id="surface-code-container" style="background:#000; padding:20px; border-radius:12px; max-width:600px; margin:auto;">
   <canvas id="surface-code-canvas" width="500" height="500" style="background:#000; display:block; margin:auto; border-radius:8px;"></canvas>
   <div style="text-align:center; margin-top:16px;">
@@ -102,7 +100,7 @@ function closeNav() {
 <script>
 const canvas = document.getElementById('surface-code-canvas');
 const ctx = canvas.getContext('2d');
-const n = 5; // lattice size
+const d = 4; // distance-3 code has 4x4 stabilizers
 const spacing = 80;
 const offset = 60;
 let errorType = 'X';
@@ -116,27 +114,40 @@ function getQubitColor(q) {
   return '#222';
 }
 
-// Rotated surface code layout
-let qubits = [];
+// Stabilizers are plaquettes
 let stabilizers = [];
-
-// Place qubits on edges
-for (let i = 0; i < n; i++) {
-  for (let j = 0; j < n; j++) {
-    if ((i + j) % 2 === 0) {
-      qubits.push({i, j, x: offset + j * spacing, y: offset + i * spacing, error: null});
-    } else {
-      const type = (i % 2 === 0) ? 'Z' : 'X';
-      stabilizers.push({i, j, x: offset + j * spacing, y: offset + i * spacing, type, triggered: false});
-    }
+for (let i = 0; i < d; i++) {
+  for (let j = 0; j < d; j++) {
+    const type = (i + j) % 2 === 0 ? 'X' : 'Z';
+    stabilizers.push({
+      i, j,
+      x: offset + j * spacing,
+      y: offset + i * spacing,
+      type,
+      triggered: false
+    });
   }
 }
+
+// Qubits live on edges of plaquettes
+let qubits = [];
+for (let s of stabilizers) {
+  const x = s.x, y = s.y;
+  qubits.push({x: x - spacing/2, y, error: null}); // left
+  qubits.push({x: x + spacing/2, y, error: null}); // right
+  qubits.push({x, y: y - spacing/2, error: null}); // top
+  qubits.push({x, y: y + spacing/2, error: null}); // bottom
+}
+// remove duplicates by position
+qubits = qubits.filter((q,i,self) =>
+  i === self.findIndex(p => p.x === q.x && p.y === q.y)
+);
 
 function updateDetectionEvents() {
   for (let s of stabilizers) {
     let count = 0;
     for (let q of qubits) {
-      if (Math.abs(q.i - s.i) + Math.abs(q.j - s.j) === 1) {
+      if (Math.abs(q.x - s.x) + Math.abs(q.y - s.y) === spacing/2) {
         if (q.error === 'X' && s.type === 'Z') count++;
         if (q.error === 'Z' && s.type === 'X') count++;
       }
@@ -149,10 +160,10 @@ function drawSurfaceCode() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   updateDetectionEvents();
 
-  // Draw stabilizer plaquettes as squares
+  // draw stabilizer squares
   for (let s of stabilizers) {
     ctx.beginPath();
-    ctx.rect(s.x - 30, s.y - 30, 60, 60);
+    ctx.rect(s.x - spacing/2, s.y - spacing/2, spacing, spacing);
     if (s.type === 'X') {
       ctx.fillStyle = s.triggered ? "rgba(239,68,68,1)" : "rgba(239,68,68,0.3)";
     } else {
@@ -161,16 +172,15 @@ function drawSurfaceCode() {
     ctx.fill();
   }
 
-  // Draw qubits as circles
+  // draw qubits as circles
   for (let q of qubits) {
     ctx.beginPath();
-    ctx.arc(q.x, q.y, 12, 0, 2 * Math.PI);
+    ctx.arc(q.x, q.y, 10, 0, 2*Math.PI);
     ctx.fillStyle = getQubitColor(q);
     ctx.shadowColor = q.error ? ctx.fillStyle : '#000';
     ctx.shadowBlur = q.error ? 8 : 0;
     ctx.fill();
     ctx.shadowBlur = 0;
-    ctx.lineWidth = 2;
     ctx.strokeStyle = '#444';
     ctx.stroke();
   }
@@ -183,7 +193,7 @@ canvas.addEventListener('click', function(e) {
   for (let q of qubits) {
     const dx = mx - q.x;
     const dy = my - q.y;
-    if (dx * dx + dy * dy < 14 * 14) {
+    if (dx*dx + dy*dy < 12*12) {
       q.error = (q.error === errorType) ? null : errorType;
       drawSurfaceCode();
       break;
@@ -193,6 +203,7 @@ canvas.addEventListener('click', function(e) {
 
 drawSurfaceCode();
 </script>
+
 
 
 </p>
