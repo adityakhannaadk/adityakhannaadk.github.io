@@ -1,0 +1,104 @@
+<!--todo: sort out sidenav text size thing-->
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Inconsolata:400" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/x-icon" href="favicon.png">
+</head>
+<body>
+
+  <html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {
+  font-family: 'Inconsolata', monospace;
+}
+
+.sidenav {
+  height: 100%;
+  width: 0;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  background-color: black;
+  overflow-x: hidden;
+  transition: 0.5s;
+  padding-top: 60px;
+}
+
+.sidenav a {
+  padding: 8px 8px 8px 32px;
+  text-decoration: none;
+  font-size: 15px;
+  color: white;
+  display: block;
+  transition: 0.3s;
+}
+
+.sidenav a:hover {
+  color: whitesmoke;
+}
+
+.sidenav .closebtn {
+  position: absolute;
+  top: 0;
+  right: 25px;
+  font-size: 36px;
+  margin-left: 50px;
+}
+
+@media screen and (max-height: 450px) {
+  .sidenav {padding-top: 15px;}
+  .sidenav a {font-size: 18px;}
+}
+
+@media screen and (max-width: 750px) {
+  .sidenav {padding-top: 15px;}
+  .sidenav a {font-size: 18px;}
+}
+
+
+
+</style>
+</head>
+<body>
+
+
+<div w3-include-html="sidenav.html"></div>
+
+
+<span style="font-size:30px;font-family:'Inconsolata',monospace;cursor:pointer" onclick="openNav()">&#9776; aditya k.</span>
+
+<script>
+function openNav() {
+  document.getElementById("mySidenav").style.width = "250px";
+}
+
+function closeNav() {
+  document.getElementById("mySidenav").style.width = "0";
+}
+</script>
+   
+</body>
+</html> 
+
+  
+<div class="content">
+<p class="has-line-data" data-line-start="0" data-line-end="1">Hey, I'm Aditya (aka whadk on most social media). I'm currently a Physics student at Oxford. I'm primarily interested in quantum computing, particularly areas related to quantum error correction (QEC) and quantum compilation. I have previously interned at Riverlane as a quantum engineer working with and on fault-tolerant quantum compilers, as well as at GlobalData as a data science intern. I've also been an active part of the NeuroTechnology society at Oxford, leading two different projects and helping to organise events. This year I will be the welfare and neuroethics representative. As a result of all this, I have a fairly good foundation across programming, mathematics and physics theory, neuroscience and machine learning. On this website I plan to write blogs about things I'm interested in, document particular projects and open source contributions, and whatever else I want realy. THanks for stopping by, if you'd like to work with me, my email is below.</p>
+<p class="has-line-data" data-line-start="2" data-line-end="3"><a href="mailto:adityakhannaadk@gmail.com">adityakhannaadk@gmail.com</a></p>
+<p class="has-line-data" data-line-start="6" data-line-end="7">Thanks, whadk.</p>
+
+
+</p>
+</div>
+
+<script src="https://www.w3schools.com/lib/w3.js"></script>
+<script>
+w3.includeHTML();
+</script>
+
+
+
