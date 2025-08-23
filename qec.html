@@ -91,299 +91,229 @@ function closeNav() {
 <div id="surface-code-container" style="background:#000; padding:20px; border-radius:12px; max-width:600px; margin:auto;">
   <canvas id="surface-code-canvas" width="500" height="500" style="background:#000; display:block; margin:auto; border-radius:8px;"></canvas>
   <div style="text-align:center; margin-top:16px;">
-    <span style="color:#38bdf8; font-size:16px;">Click a qubit to toggle X (blue) or Z (purple) error:</span>
-    <br>
+    <span style="color:#38bdf8; font-size:16px;">Click a data qubit to toggle X (blue) or Z (purple) error:</span><br>
     <button onclick="setErrorType('X')" style="background:#1e1b4b; color:#60a5fa; border:none; padding:8px 16px; margin:8px; border-radius:6px; font-family:'Inconsolata',monospace;">X Error</button>
     <button onclick="setErrorType('Z')" style="background:#134e4a; color:#38bdf8; border:none; padding:8px 16px; margin:8px; border-radius:6px; font-family:'Inconsolata',monospace;">Z Error</button>
     <button onclick="resetSurfaceCode()" style="background:#0f172a; color:#f59e42; border:none; padding:8px 16px; margin:8px; border-radius:6px; font-family:'Inconsolata',monospace;">Reset</button>
   </div>
 </div>
+
 <script>
-// Place data qubits at corners of plaquettes
-qubits = [];
-for (let i = 0; i <= d; i++) {
-    for (let j = 0; j <= d; j++) {
-        qubits.push({
-            x: offset + j * spacing - spacing / 2,
-            y: offset + i * spacing - spacing / 2,
-            error: null
-        });
-    }
-}
-
-// Add semicircle stabilizers at boundaries for rotated code
-function drawSemicircle(x, y, radius, direction, color, triggered) {
-    ctx.beginPath();
-    if (direction === 'up') {
-        ctx.arc(x, y, radius, Math.PI, 0, false);
-    } else if (direction === 'down') {
-        ctx.arc(x, y, radius, 0, Math.PI, false);
-    } else if (direction === 'left') {
-        ctx.arc(x, y, radius, 0.5 * Math.PI, 1.5 * Math.PI, false);
-    } else if (direction === 'right') {
-        ctx.arc(x, y, radius, 1.5 * Math.PI, 0.5 * Math.PI, false);
-    }
-    ctx.fillStyle = triggered ? color : color.replace('1)', '0.3)');
-    ctx.fill();
-}
-
-// Redefine stabilizers for rotated code
-stabilizers = [];
-for (let i = 0; i < d; i++) {
-    for (let j = 0; j < d; j++) {
-        const type = (i + j) % 2 === 0 ? 'X' : 'Z';
-        stabilizers.push({
-            i, j,
-            x: offset + j * spacing,
-            y: offset + i * spacing,
-            type,
-            triggered: false,
-            shape: 'square'
-        });
-    }
-}
-// Add boundary semicircle stabilizers
-for (let k = 0; k < d; k++) {
-    // Top
-    stabilizers.push({
-        i: 0, j: k,
-        x: offset + k * spacing,
-        y: offset - spacing / 2,
-        type: (k % 2 === 0 ? 'X' : 'Z'),
-        triggered: false,
-        shape: 'semicircle',
-        direction: 'up'
-    });
-    // Bottom
-    stabilizers.push({
-        i: d, j: k,
-        x: offset + k * spacing,
-        y: offset + d * spacing - spacing / 2,
-        type: ((d + k) % 2 === 0 ? 'X' : 'Z'),
-        triggered: false,
-        shape: 'semicircle',
-        direction: 'down'
-    });
-    // Left
-    stabilizers.push({
-        i: k, j: 0,
-        x: offset - spacing / 2,
-        y: offset + k * spacing,
-        type: (k % 2 === 0 ? 'X' : 'Z'),
-        triggered: false,
-        shape: 'semicircle',
-        direction: 'left'
-    });
-    // Right
-    stabilizers.push({
-        i: k, j: d,
-        x: offset + d * spacing - spacing / 2,
-        y: offset + k * spacing,
-        type: ((d + k) % 2 === 0 ? 'X' : 'Z'),
-        triggered: false,
-        shape: 'semicircle',
-        direction: 'right'
-    });
-}
-
-// Update detection events for corners
-function updateDetectionEvents() {
-    for (let s of stabilizers) {
-        let count = 0;
-        if (s.shape === 'square') {
-            for (let q of qubits) {
-                // corners of square
-                if (
-                    (Math.abs(q.x - (s.x - spacing / 2)) < 1e-2 && Math.abs(q.y - (s.y - spacing / 2)) < 1e-2) ||
-                    (Math.abs(q.x - (s.x + spacing / 2)) < 1e-2 && Math.abs(q.y - (s.y - spacing / 2)) < 1e-2) ||
-                    (Math.abs(q.x - (s.x - spacing / 2)) < 1e-2 && Math.abs(q.y - (s.y + spacing / 2)) < 1e-2) ||
-                    (Math.abs(q.x - (s.x + spacing / 2)) < 1e-2 && Math.abs(q.y - (s.y + spacing / 2)) < 1e-2)
-                ) {
-                    if (q.error === 'X' && s.type === 'Z') count++;
-                    if (q.error === 'Z' && s.type === 'X') count++;
-                }
-            }
-        } else {
-            // semicircle stabilizers touch one corner
-            for (let q of qubits) {
-                let match = false;
-                if (s.direction === 'up' && Math.abs(q.x - s.x) < 1e-2 && Math.abs(q.y - (s.y - spacing / 2)) < 1e-2) match = true;
-                if (s.direction === 'down' && Math.abs(q.x - s.x) < 1e-2 && Math.abs(q.y - (s.y + spacing / 2)) < 1e-2) match = true;
-                if (s.direction === 'left' && Math.abs(q.x - (s.x - spacing / 2)) < 1e-2 && Math.abs(q.y - s.y) < 1e-2) match = true;
-                if (s.direction === 'right' && Math.abs(q.x - (s.x + spacing / 2)) < 1e-2 && Math.abs(q.y - s.y) < 1e-2) match = true;
-                if (match) {
-                    if (q.error === 'X' && s.type === 'Z') count++;
-                    if (q.error === 'Z' && s.type === 'X') count++;
-                }
-            }
-        }
-        s.triggered = count % 2 === 1;
-    }
-}
-
-// Draw rotated surface code
-function drawSurfaceCode() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    updateDetectionEvents();
-
-    // draw stabilizers
-    for (let s of stabilizers) {
-        if (s.shape === 'square') {
-            ctx.beginPath();
-            ctx.rect(s.x - spacing / 2, s.y - spacing / 2, spacing, spacing);
-            ctx.fillStyle = s.type === 'X'
-                ? (s.triggered ? "rgba(239,68,68,1)" : "rgba(239,68,68,0.3)")
-                : (s.triggered ? "rgba(34,211,238,1)" : "rgba(34,211,238,0.3)");
-            ctx.fill();
-        } else {
-            drawSemicircle(
-                s.x, s.y, spacing / 2,
-                s.direction,
-                s.type === 'X'
-                    ? (s.triggered ? "rgba(239,68,68,1)" : "rgba(239,68,68,0.3)")
-                    : (s.triggered ? "rgba(34,211,238,1)" : "rgba(34,211,238,0.3)"),
-                s.triggered
-            );
-        }
-    }
-
-    // draw qubits as circles
-    for (let q of qubits) {
-        ctx.beginPath();
-        ctx.arc(q.x, q.y, 10, 0, 2 * Math.PI);
-        ctx.fillStyle = getQubitColor(q);
-        ctx.shadowColor = q.error ? ctx.fillStyle : '#000';
-        ctx.shadowBlur = q.error ? 8 : 0;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#444';
-        ctx.stroke();
-    }
-}
-
-canvas.addEventListener('click', function(e) {
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    for (let q of qubits) {
-        const dx = mx - q.x;
-        const dy = my - q.y;
-        if (dx * dx + dy * dy < 12 * 12) {
-            q.error = (q.error === errorType) ? null : errorType;
-            drawSurfaceCode();
-            break;
-        }
-    }
-});
-
-drawSurfaceCode();
-</script>
-<script>
+// ------- config -------
+const L = 4;                 // number of plaquettes per side
+const CELL = 80;             // plaquette size (square width/height)
+const R = CELL/2;            // semicircle radius
+const ORIGIN = 80;           // top-left of inner grid (leaves room for semicircles)
 const canvas = document.getElementById('surface-code-canvas');
 const ctx = canvas.getContext('2d');
-const d = 4; // distance-3 code has 4x4 stabilizers
-const spacing = 80;
-const offset = 60;
-let errorType = 'X';
+let errorType = 'X';         // which error to toggle on click
 
-function setErrorType(type) { errorType = type; }
-function resetSurfaceCode() { for (let q of qubits) q.error = null; drawSurfaceCode(); }
+function setErrorType(t){ errorType = t; }
+function resetSurfaceCode(){ for (const q of dataQubits) q.error = null; draw(); }
 
-function getQubitColor(q) {
-  if (q.error === 'X') return '#60a5fa';
-  if (q.error === 'Z') return '#a78bfa';
-  return '#222';
+// ------- colors -------
+const COLS = {
+  X_trans: 'rgba(239,68,68,0.32)',  // red (translucent)
+  X_solid: 'rgba(239,68,68,1)',     // red (solid)
+  Z_trans: 'rgba(34,211,238,0.32)', // turquoise (translucent)
+  Z_solid: 'rgba(34,211,238,1)',    // turquoise (solid)
+  grid:    '#222',
+  wire:    '#2a2a2a',
+  qubit:   '#333',
+  X_err:   '#60a5fa',               // blue dot for X error on data qubit
+  Z_err:   '#a78bfa'                // purple dot for Z error on data qubit
+};
+
+// ------- geometry helpers -------
+const v2p = (i,j) => ({ x: ORIGIN + j*CELL, y: ORIGIN + i*CELL });
+const s2p = (i,j) => ({ x: ORIGIN + (j+0.5)*CELL, y: ORIGIN + (i+0.5)*CELL });
+
+// ------- data qubits at vertices -------
+const dataQubits = [];
+const qmap = new Map();
+const key = (i,j)=>`${i},${j}`;
+
+for (let i=0;i<=L;i++){
+  for (let j=0;j<=L;j++){
+    const p = v2p(i,j);
+    const q = { i, j, x:p.x, y:p.y, error:null };
+    dataQubits.push(q);
+    qmap.set(key(i,j), q);
+  }
 }
+const getQ = (i,j)=>qmap.get(key(i,j));
 
-// Stabilizers are plaquettes
-let stabilizers = [];
-for (let i = 0; i < d; i++) {
-  for (let j = 0; j < d; j++) {
-    const type = (i + j) % 2 === 0 ? 'X' : 'Z';
+// ------- stabilizers (squares + boundary semicircles) -------
+const stabilizers = [];
+
+// interior squares (plaquettes)
+for (let i=0;i<L;i++){
+  for (let j=0;j<L;j++){
     stabilizers.push({
-      i, j,
-      x: offset + j * spacing,
-      y: offset + i * spacing,
-      type,
-      triggered: false
+      kind:'square',
+      i,j,
+      type: ((i+j)%2===0 ? 'Z' : 'X'),
+      triggered:false
     });
   }
 }
 
-// Qubits live on edges of plaquettes
-let qubits = [];
-for (let s of stabilizers) {
-  const x = s.x, y = s.y;
-  qubits.push({x: x - spacing/2, y, error: null}); // left
-  qubits.push({x: x + spacing/2, y, error: null}); // right
-  qubits.push({x, y: y - spacing/2, error: null}); // top
-  qubits.push({x, y: y + spacing/2, error: null}); // bottom
+// boundary semicircles with the exact parity pattern of the reference
+// top: above row 0, odd columns
+for (let j=0;j<L;j++) if (j%2===1){
+  stabilizers.push({ kind:'half', side:'up',    i:0,     j, type: ((0+j)%2===0?'Z':'X'), triggered:false });
 }
-// remove duplicates by position
-qubits = qubits.filter((q,i,self) =>
-  i === self.findIndex(p => p.x === q.x && p.y === q.y)
-);
+// bottom: below last row, even columns
+for (let j=0;j<L;j++) if (j%2===0){
+  stabilizers.push({ kind:'half', side:'down',  i:L-1,   j, type: (((L-1)+j)%2===0?'Z':'X'), triggered:false });
+}
+// left: left of col 0, odd rows
+for (let i=0;i<L;i++) if (i%2===1){
+  stabilizers.push({ kind:'half', side:'left',  i, j:0,  type: ((i+0)%2===0?'Z':'X'), triggered:false });
+}
+// right: right of last col, even rows
+for (let i=0;i<L;i++) if (i%2===0){
+  stabilizers.push({ kind:'half', side:'right', i, j:L-1,type: ((i+(L-1))%2===0?'Z':'X'), triggered:false });
+}
 
-function updateDetectionEvents() {
-  for (let s of stabilizers) {
-    let count = 0;
-    for (let q of qubits) {
-      if (Math.abs(q.x - s.x) + Math.abs(q.y - s.y) === spacing/2) {
-        if (q.error === 'X' && s.type === 'Z') count++;
-        if (q.error === 'Z' && s.type === 'X') count++;
+// ------- syndrome update -------
+function updateSyndromes(){
+  for (const s of stabilizers){
+    let affected = [];
+    if (s.kind==='square'){
+      affected = [
+        getQ(s.i,   s.j),
+        getQ(s.i+1, s.j),
+        getQ(s.i,   s.j+1),
+        getQ(s.i+1, s.j+1),
+      ].filter(Boolean);
+    } else {
+      // boundary half-plaquettes: two vertices along that edge
+      if (s.side==='up'){
+        affected = [ getQ(0, s.j), getQ(0, s.j+1) ];
+      } else if (s.side==='down'){
+        affected = [ getQ(L, s.j), getQ(L, s.j+1) ];
+      } else if (s.side==='left'){
+        affected = [ getQ(s.i, 0), getQ(s.i+1, 0) ];
+      } else if (s.side==='right'){
+        affected = [ getQ(s.i, L), getQ(s.i+1, L) ];
       }
     }
-    s.triggered = count % 2 === 1;
+
+    let parity = 0;
+    for (const q of affected){
+      if (s.type==='X' && q?.error==='Z') parity ^= 1; // X stabilizer detects Z errors
+      if (s.type==='Z' && q?.error==='X') parity ^= 1; // Z stabilizer detects X errors
+    }
+    s.triggered = (parity===1);
   }
 }
 
-function drawSurfaceCode() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  updateDetectionEvents();
+// ------- drawing -------
+function drawGridLines(){
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = COLS.wire;
 
-  // draw stabilizer squares
-  for (let s of stabilizers) {
+  // horizontal edges
+  for (let i=0;i<=L;i++){
     ctx.beginPath();
-    ctx.rect(s.x - spacing/2, s.y - spacing/2, spacing, spacing);
-    if (s.type === 'X') {
-      ctx.fillStyle = s.triggered ? "rgba(239,68,68,1)" : "rgba(239,68,68,0.3)";
-    } else {
-      ctx.fillStyle = s.triggered ? "rgba(34,211,238,1)" : "rgba(34,211,238,0.3)";
-    }
-    ctx.fill();
+    const a = v2p(i,0), b = v2p(i,L);
+    ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
   }
+  // vertical edges
+  for (let j=0;j<=L;j++){
+    ctx.beginPath();
+    const a = v2p(0,j), b = v2p(L,j);
+    ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+}
 
-  // draw qubits as circles
-  for (let q of qubits) {
+function fillFor(s){
+  const on = s.triggered;
+  const isX = s.type==='X';
+  return isX ? (on?COLS.X_solid:COLS.X_trans)
+             : (on?COLS.Z_solid:COLS.Z_trans);
+}
+
+function drawStabilizers(){
+  for (const s of stabilizers){
+    ctx.fillStyle = fillFor(s);
+    ctx.strokeStyle = COLS.grid;
+    ctx.lineWidth = 1.5;
+
+    if (s.kind==='square'){
+      const c = s2p(s.i,s.j);
+      ctx.beginPath();
+      ctx.rect(c.x - R, c.y - R, CELL, CELL);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // boundary semicircle
+      let cx, cy, start, end;
+      if (s.side==='up'){
+        const c = s2p(0, s.j);
+        cx = c.x; cy = ORIGIN - R; start = Math.PI; end = 0;
+      } else if (s.side==='down'){
+        const c = s2p(L-1, s.j);
+        cx = c.x; cy = ORIGIN + L*CELL + R; start = 0; end = Math.PI;
+      } else if (s.side==='left'){
+        const c = s2p(s.i, 0);
+        cx = ORIGIN - R; cy = c.y; start = Math.PI/2; end = 3*Math.PI/2;
+      } else { // right
+        const c = s2p(s.i, L-1);
+        cx = ORIGIN + L*CELL + R; cy = c.y; start = -Math.PI/2; end = Math.PI/2;
+      }
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, start, end, false);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+}
+
+function drawQubits(){
+  for (const q of dataQubits){
     ctx.beginPath();
     ctx.arc(q.x, q.y, 10, 0, 2*Math.PI);
-    ctx.fillStyle = getQubitColor(q);
-    ctx.shadowColor = q.error ? ctx.fillStyle : '#000';
+    ctx.fillStyle = q.error==='X' ? COLS.X_err
+                   : q.error==='Z' ? COLS.Z_err
+                   : COLS.qubit;
+    ctx.shadowColor = (q.error ? ctx.fillStyle : '#000');
     ctx.shadowBlur = q.error ? 8 : 0;
     ctx.fill();
     ctx.shadowBlur = 0;
     ctx.strokeStyle = '#444';
+    ctx.lineWidth = 2;
     ctx.stroke();
   }
 }
 
-canvas.addEventListener('click', function(e) {
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  for (let q of qubits) {
-    const dx = mx - q.x;
-    const dy = my - q.y;
-    if (dx*dx + dy*dy < 12*12) {
-      q.error = (q.error === errorType) ? null : errorType;
-      drawSurfaceCode();
-      break;
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  updateSyndromes();
+  drawStabilizers();   // translucent/solid plaquettes + boundary semicircles
+  drawGridLines();     // faint lattice lines (under qubits)
+  drawQubits();        // data qubits at corners
+}
+
+// ------- interaction (toggle errors on qubits) -------
+canvas.addEventListener('click', (e)=>{
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  for (const q of dataQubits){
+    const dx = mx - q.x, dy = my - q.y;
+    if (dx*dx + dy*dy < 12*12){
+      q.error = (q.error===errorType) ? null : errorType;
+      draw();
+      return;
     }
   }
 });
 
-drawSurfaceCode();
+draw();
 </script>
+
 
 
 </p>
