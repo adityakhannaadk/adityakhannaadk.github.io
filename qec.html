@@ -85,7 +85,7 @@ function closeNav() {
 </body>
 </html> 
 
-  
+
 <div class="content">
 <p class="has-line-data" data-line-start="0" data-line-end="1">I'm planning to add a lot more here, but for now here's a nice visualisation of a rotated surface code where you can add X and Z errors.</p>
 <div id="surface-code-container" style="background:#000; padding:20px; border-radius:12px; max-width:600px; margin:auto;">
@@ -102,7 +102,7 @@ function closeNav() {
 // ------- config -------
 const L = 4;                 // number of plaquettes per side
 const CELL = 80;             // plaquette size (square width/height)
-const R = CELL/2;            // semicircle radius
+const R = CELL/2;            // semicircle radiusS
 const ORIGIN = 80;           // top-left of inner grid (leaves room for semicircles)
 const canvas = document.getElementById('surface-code-canvas');
 const ctx = canvas.getContext('2d');
@@ -161,19 +161,19 @@ for (let i=0;i<L;i++){
 // boundary semicircles with the exact parity pattern of the reference
 // top: above row 0, odd columns
 for (let j=0;j<L;j++) if (j%2===1){
-  stabilizers.push({ kind:'half', side:'up',    i:0,     j, type: ((0+j)%2===0?'Z':'X'), triggered:false });
+  stabilizers.push({ kind:'half', side:'up',    i:0,     j, type: ((0+j)%1===0?'Z':'X'), triggered:false });
 }
 // bottom: below last row, even columns
 for (let j=0;j<L;j++) if (j%2===0){
-  stabilizers.push({ kind:'half', side:'down',  i:L-1,   j, type: (((L-1)+j)%2===0?'Z':'X'), triggered:false });
+  stabilizers.push({ kind:'half', side:'down',  i:L-1,   j, type: (((L-1)+j)%2===1?'Z':'X'), triggered:false });
 }
 // left: left of col 0, odd rows
-for (let i=0;i<L;i++) if (i%2===1){
-  stabilizers.push({ kind:'half', side:'left',  i, j:0,  type: ((i+0)%2===0?'Z':'X'), triggered:false });
+for (let i=0;i<L;i++) if (i%2===0){
+  stabilizers.push({ kind:'half', side:'left',  i, j:0,  type: ((i+0)%2===1?'Z':'X'), triggered:false });
 }
 // right: right of last col, even rows
-for (let i=0;i<L;i++) if (i%2===0){
-  stabilizers.push({ kind:'half', side:'right', i, j:L-1,type: ((i+(L-1))%2===0?'Z':'X'), triggered:false });
+for (let i=0;i<L;i++) if (i%2===1){
+  stabilizers.push({ kind:'half', side:'right', i, j:L-1,type: ((i+(L-1))%2===1?'Z':'X'), triggered:false });
 }
 
 // ------- syndrome update -------
@@ -252,16 +252,16 @@ function drawStabilizers(){
       let cx, cy, start, end;
       if (s.side==='up'){
         const c = s2p(0, s.j);
-        cx = c.x; cy = ORIGIN - R; start = Math.PI; end = 0;
+        cx = c.x; cy = ORIGIN; start = Math.PI; end = 0;
       } else if (s.side==='down'){
         const c = s2p(L-1, s.j);
-        cx = c.x; cy = ORIGIN + L*CELL + R; start = 0; end = Math.PI;
+        cx = c.x; cy = ORIGIN + L*CELL; start = 0; end = Math.PI;
       } else if (s.side==='left'){
         const c = s2p(s.i, 0);
-        cx = ORIGIN - R; cy = c.y; start = Math.PI/2; end = 3*Math.PI/2;
+        cx = ORIGIN; cy = c.y; start = Math.PI/2; end = 3*Math.PI/2;
       } else { // right
         const c = s2p(s.i, L-1);
-        cx = ORIGIN + L*CELL + R; cy = c.y; start = -Math.PI/2; end = Math.PI/2;
+        cx = ORIGIN + L*CELL; cy = c.y; start = -Math.PI/2; end = Math.PI/2;
       }
       ctx.beginPath();
       ctx.arc(cx, cy, R, start, end, false);
