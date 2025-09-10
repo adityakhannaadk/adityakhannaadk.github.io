@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>TQEC Blockgraph Editor</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        html, body { 
+            height:100%; 
+            margin:0; 
+            background:#111; 
+            font-family: 'Arial', sans-serif;
+        }
+        canvas { display:block; }
+        
+        #hud {
+            position: fixed;
+            left: 12px;
+            bottom: 12px;
+            font-size: 12px;
+            opacity: 0.9;
+            line-height: 1.4;
+            background: rgba(0,0,0,0.7);
+            padding: 12px;
+            border-radius: 8px;
+            backdrop-filter: blur(4px);
+            color: #ddd;
+            min-width: 250px;
+        }
+        
+        #toolbar {
+            position: fixed;
+            right: 12px;
+            top: 12px;
+            background: rgba(0,0,0,0.7);
+            padding: 12px;
+            border-radius: 8px;
+            backdrop-filter: blur(4px);
+            color: #ddd;
+            max-width: 200px;
+        }
+        
+        .cube-type {
+            display: block;
+            margin: 4px 0;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #ddd;
+            text-decoration: none;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .cube-type:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.4);
+        }
+        
+        .cube-type.active {
+            background: rgba(100,150,255,0.3);
+            border-color: rgba(100,150,255,0.6);
+        }
+        
+        .mode-indicator {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        #export {
+            position: fixed;
+            right: 12px;
+            bottom: 12px;
+            background: rgba(0,100,0,0.7);
+            padding: 8px 12px;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            border: none;
+            font-size: 12px;
+        }
+        
+        #export:hover {
+            background: rgba(0,150,0,0.8);
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="toolbar">
+        <div style="margin-bottom: 12px; font-size: 14px; font-weight: bold;">TQEC Blocks</div>
+        <button class="cube-type active" data-type="PORT">PORT</button>
+        <button class="cube-type" data-type="XZZ">XZZ</button>
+        <button class="cube-type" data-type="ZXZ">ZXZ</button>
+        <button class="cube-type" data-type="XZX">XZX</button>
+        <button class="cube-type" data-type="ZZX">ZZX</button>
+        <button class="cube-type" data-type="XXZ">XXZ</button>
+        <button class="cube-type" data-type="ZXX">ZXX</button>
+        <button class="cube-type" data-type="PIPE">PIPE</button>
+        <div style="margin-top: 12px; font-size: 11px; opacity: 0.7;">
+            <div class="mode-indicator" id="modeDisplay">Mode: Place PORT</div>
+        </div>
+    </div>
+
+    <button id="export">Export Data</button>
+
+    <div id="hud">
+        <div>Cubes: <span id="cubeCount">0</span></div>
+        <div>Pipes: <span id="pipeCount">0</span></div>
+        <hr style="border: 1px solid rgba(255,255,255,0.2); margin: 8px 0;">
+        <div><strong>Controls:</strong></div>
+        <div>• Left-click: Place selected block/pipe</div>
+        <div>• Right-click: Delete block/pipe</div>
+        <div>• Arrow keys: Pan camera</div>
+        <div>• Pipes: Only between adjacent cubes</div>
+        <div>• Grid spacing: 2 units</div>
+        <hr style="border: 1px solid rgba(255,255,255,0.2); margin: 8px 0;">
+        <div><strong>Basis Legend:</strong></div>
+        <div>• X = Red, Z = Blue</div>
+        <div>• XYZ order: faces when looking along -X, -Y, -Z</div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // TQEC Data Structure
+        const tqecData = {
+            cubes: new Map(), // position_key -> {type: string, position: {x,y,z}}
+            pipes: new Set()  // Set of "pos1_key|pos2_key" strings
+        };
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111111);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(12, 10, 12);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 15, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+
+        // Grid (spaced for TQEC lattice - every 2 units)
+        const gridSize = 50;
+        const gridDivisions = 10;
+        const grid = new THREE.GridHelper(gridSize, gridDivisions, 0x333333, 0x222222);
+        scene.add(grid);
+
+        // Ground plane for raycasting
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100),
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.name = 'GROUND';
+        scene.add(ground);
+
+        // Geometries
+        const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+
+        // Materials for PORT cubes
+        const portMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
+
+        // Pipe material - metallic silver
+        const pipeMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xc0c0c0,
+            metalness: 0.8,
+            roughness: 0.2
+        });
+
+        // Create materials for XZ basis cubes
+        function createBasisCubeMaterials(basisString) {
+            // basisString format: XYZ where each letter is the basis when looking along -X, -Y, -Z
+            const colors = { X: 0xff4444, Z: 0x4444ff }; // Red for X, Blue for Z
+            
+            return [
+                new THREE.MeshStandardMaterial({ color: colors[basisString[0]] }), // right face (-X view)
+                new THREE.MeshStandardMaterial({ color: colors[basisString[0]] }), // left face (-X view)
+                new THREE.MeshStandardMaterial({ color: colors[basisString[2]] }), // top face (-Z view)
+                new THREE.MeshStandardMaterial({ color: colors[basisString[2]] }), // bottom face (-Z view)
+                new THREE.MeshStandardMaterial({ color: colors[basisString[1]] }), // front face (-Y view)
+                new THREE.MeshStandardMaterial({ color: colors[basisString[1]] })  // back face (-Y view)
+            ];
+        }
+
+        // Groups for organization
+        const cubeParent = new THREE.Group();
+        const pipeParent = new THREE.Group();
+        scene.add(cubeParent);
+        scene.add(pipeParent);
+
+        // State management
+        let currentMode = 'PORT';
+        let selectedCubeForPipe = null;
+        const occupied = new Map(); // position_key -> mesh
+        
+        // UI elements
+        const cubeCountEl = document.getElementById('cubeCount');
+        const pipeCountEl = document.getElementById('pipeCount');
+        const modeDisplayEl = document.getElementById('modeDisplay');
+
+        function updateCounts() {
+            cubeCountEl.textContent = cubeParent.children.length;
+            pipeCountEl.textContent = pipeParent.children.length;
+        }
+
+        function updateModeDisplay() {
+            if (currentMode === 'PIPE') {
+                modeDisplayEl.textContent = 'Mode: Connect Pipes';
+            } else {
+                modeDisplayEl.textContent = `Mode: Place ${currentMode}`;
+            }
+        }
+
+        // TQEC lattice positioning
+        function snapToLattice(pos) {
+            return new THREE.Vector3(
+                Math.round(pos.x / 2) * 2,
+                Math.max(0, Math.round(pos.y / 2) * 2),
+                Math.round(pos.z / 2) * 2
+            );
+        }
+
+        function keyFromPos(pos) {
+            return `${pos.x},${pos.y},${pos.z}`;
+        }
+
+        function posFromKey(key) {
+            const [x, y, z] = key.split(',').map(Number);
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // Check if two positions are adjacent (Manhattan distance = 2)
+        function areAdjacent(pos1, pos2) {
+            const dx = Math.abs(pos1.x - pos2.x);
+            const dy = Math.abs(pos1.y - pos2.y);
+            const dz = Math.abs(pos1.z - pos2.z);
+            const total = dx + dy + dz;
+            
+            // Adjacent means exactly one coordinate differs by 2, others by 0
+            return total === 2 && (dx === 2 || dy === 2 || dz === 2);
+        }
+
+        function createCube(type, position) {
+            let cube;
+            
+            if (type === 'PORT') {
+                cube = new THREE.Mesh(cubeGeometry, portMaterial.clone());
+            } else {
+                const materials = createBasisCubeMaterials(type);
+                cube = new THREE.Mesh(cubeGeometry, materials);
+            }
+            
+            cube.position.copy(position);
+            cube.position.y += 0.5; // Lift cube to sit on grid
+            cube.castShadow = true;
+            cube.receiveShadow = true;
+            cube.name = 'CUBE';
+            cube.userData = { type, gridPos: position.clone() };
+            
+            return cube;
+        }
+
+        function addCube(type, pos) {
+            const gridPos = snapToLattice(pos);
+            const key = keyFromPos(gridPos);
+            
+            if (occupied.has(key)) return null;
+            
+            const cube = createCube(type, gridPos);
+            cubeParent.add(cube);
+            occupied.set(key, cube);
+            
+            // Update TQEC data structure
+            tqecData.cubes.set(key, {
+                type: type,
+                position: { x: gridPos.x, y: gridPos.y, z: gridPos.z }
+            });
+            
+            updateCounts();
+            return cube;
+        }
+
+        function removeCube(cube) {
+            const key = keyFromPos(cube.userData.gridPos);
+            occupied.delete(key);
+            cubeParent.remove(cube);
+            
+            // Remove from TQEC data structure
+            tqecData.cubes.delete(key);
+            
+            // Remove any pipes connected to this cube
+            const pipesToRemove = [];
+            pipeParent.children.forEach(pipe => {
+                if (pipe.userData.cube1 === cube || pipe.userData.cube2 === cube) {
+                    pipesToRemove.push(pipe);
+                }
+            });
+            
+            pipesToRemove.forEach(pipe => removePipe(pipe));
+            
+            // Dispose geometry and materials
+            if (cube.geometry) cube.geometry.dispose();
+            if (Array.isArray(cube.material)) {
+                cube.material.forEach(mat => mat.dispose());
+            } else if (cube.material) {
+                cube.material.dispose();
+            }
+            
+            updateCounts();
+        }
+
+        function createPipe(cube1, cube2) {
+            const pos1 = cube1.userData.gridPos;
+            const pos2 = cube2.userData.gridPos;
+            
+            // Calculate pipe position and orientation
+            const midPoint = pos1.clone().add(pos2).multiplyScalar(0.5);
+            midPoint.y += 0.5; // Same height as cubes
+            
+            const direction = pos2.clone().sub(pos1);
+            const pipe = new THREE.Mesh(cubeGeometry.clone(), pipeMaterial.clone());
+            
+            // Scale pipe to connect cubes (length 1, since cubes are 2 units apart)
+            if (Math.abs(direction.x) > 0) {
+                pipe.scale.set(1, 1, 1); // X direction
+            } else if (Math.abs(direction.y) > 0) {
+                pipe.scale.set(1, 1, 1); // Y direction  
+            } else {
+                pipe.scale.set(1, 1, 1); // Z direction
+            }
+            
+            pipe.position.copy(midPoint);
+            pipe.castShadow = true;
+            pipe.receiveShadow = true;
+            pipe.name = 'PIPE';
+            pipe.userData = { 
+                cube1, 
+                cube2, 
+                pos1Key: keyFromPos(pos1),
+                pos2Key: keyFromPos(pos2)
+            };
+            
+            return pipe;
+        }
+
+        function addPipe(cube1, cube2) {
+            // Check if cubes are adjacent
+            if (!areAdjacent(cube1.userData.gridPos, cube2.userData.gridPos)) {
+                console.log('Cubes must be adjacent to connect with pipe');
+                return null;
+            }
+            
+            const pos1Key = keyFromPos(cube1.userData.gridPos);
+            const pos2Key = keyFromPos(cube2.userData.gridPos);
+            const pipeKey1 = `${pos1Key}|${pos2Key}`;
+            const pipeKey2 = `${pos2Key}|${pos1Key}`;
+            
+            // Check if pipe already exists
+            if (tqecData.pipes.has(pipeKey1) || tqecData.pipes.has(pipeKey2)) {
+                console.log('Pipe already exists between these cubes');
+                return null;
+            }
+            
+            const pipe = createPipe(cube1, cube2);
+            pipeParent.add(pipe);
+            
+            // Update TQEC data structure
+            tqecData.pipes.add(pipeKey1);
+            
+            updateCounts();
+            return pipe;
+        }
+
+        function removePipe(pipe) {
+            const pos1Key = pipe.userData.pos1Key;
+            const pos2Key = pipe.userData.pos2Key;
+            const pipeKey1 = `${pos1Key}|${pos2Key}`;
+            const pipeKey2 = `${pos2Key}|${pos1Key}`;
+            
+            // Remove from TQEC data structure
+            tqecData.pipes.delete(pipeKey1);
+            tqecData.pipes.delete(pipeKey2);
+            
+            pipeParent.remove(pipe);
+            pipe.geometry.dispose();
+            pipe.material.dispose();
+            updateCounts();
+        }
+
+        // Export function
+        function exportTQECData() {
+            const exportData = {
+                cubes: Object.fromEntries(tqecData.cubes),
+                pipes: Array.from(tqecData.pipes)
+            };
+            
+            const jsonString = JSON.stringify(exportData, null, 2);
+            
+            // Create download
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tqec_blockgraph.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Also log to console for easy copying
+            console.log('TQEC Data:', exportData);
+        }
+
+        // Event listeners
+        document.getElementById('export').addEventListener('click', exportTQECData);
+
+        // Toolbar event handling
+        document.querySelectorAll('.cube-type').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.cube-type').forEach(b => b.classList.remove('active'));
+                button.classList.add('active');
+                currentMode = button.getAttribute('data-type');
+                selectedCubeForPipe = null;
+                updateModeDisplay();
+            });
+        });
+
+        // Arrow key panning
+        const panSpeed = 2;
+        document.addEventListener('keydown', (event) => {
+            switch(event.code) {
+                case 'ArrowUp':
+                    controls.target.z -= panSpeed;
+                    camera.position.z -= panSpeed;
+                    break;
+                case 'ArrowDown':
+                    controls.target.z += panSpeed;
+                    camera.position.z += panSpeed;
+                    break;
+                case 'ArrowLeft':
+                    controls.target.x -= panSpeed;
+                    camera.position.x -= panSpeed;
+                    break;
+                case 'ArrowRight':
+                    controls.target.x += panSpeed;
+                    camera.position.x += panSpeed;
+                    break;
+            }
+            controls.update();
+        });
+
+        // Mouse interaction
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function getMouseIntersection(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            return raycaster.intersectObjects([ground, ...cubeParent.children, ...pipeParent.children]);
+        }
+
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        window.addEventListener('mousedown', (e) => {
+            const intersects = getMouseIntersection(e);
+            if (!intersects.length) return;
+
+            const hit = intersects[0];
+
+            if (e.button === 0) { // Left click
+                if (currentMode === 'PIPE') {
+                    if (hit.object.name === 'CUBE') {
+                        if (!selectedCubeForPipe) {
+                            selectedCubeForPipe = hit.object;
+                            console.log('Selected cube for pipe connection');
+                        } else if (selectedCubeForPipe !== hit.object) {
+                            addPipe(selectedCubeForPipe, hit.object);
+                            selectedCubeForPipe = null;
+                        }
+                    }
+                } else {
+                    // Place cube mode
+                    let targetPos;
+                    if (hit.object.name === 'CUBE') {
+                        // Place adjacent to existing cube
+                        const normal = hit.face.normal.clone();
+                        targetPos = hit.object.userData.gridPos.clone().add(normal.multiplyScalar(2));
+                    } else if (hit.object.name === 'GROUND') {
+                        targetPos = hit.point.clone();
+                        targetPos.y = 0;
+                    }
+                    
+                    if (targetPos) {
+                        addCube(currentMode, targetPos);
+                    }
+                }
+            } else if (e.button === 2) { // Right click
+                if (hit.object.name === 'CUBE') {
+                    removeCube(hit.object);
+                    if (selectedCubeForPipe === hit.object) {
+                        selectedCubeForPipe = null;
+                    }
+                } else if (hit.object.name === 'PIPE') {
+                    removePipe(hit.object);
+                }
+            }
+        });
+
+        // Add some initial cubes for demonstration
+        addCube('PORT', new THREE.Vector3(0, 0, 0));
+        addCube('XZZ', new THREE.Vector3(4, 0, 0));
+        addCube('ZXZ', new THREE.Vector3(0, 0, 4));
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Window resize handling
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize
+        updateCounts();
+        updateModeDisplay();
+        animate();
+    </script>
+</body>
+</html>
